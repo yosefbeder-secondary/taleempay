@@ -31,9 +31,10 @@ interface StudentSelectorProps {
   selectedStudent: Student | null
   onSelect: (student: Student) => void
   onClear: () => void
+  classId?: number
 }
 
-export function StudentSelector({ selectedStudent, onSelect, onClear }: StudentSelectorProps) {
+export function StudentSelector({ selectedStudent, onSelect, onClear, classId }: StudentSelectorProps) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [students, setStudents] = useState<Student[]>([])
@@ -41,7 +42,7 @@ export function StudentSelector({ selectedStudent, onSelect, onClear }: StudentS
   // Search students when query changes
   useEffect(() => {
     if (query.length >= 3) {
-      searchStudents(query).then(setStudents)
+      searchStudents(query, classId).then(setStudents)
     } else {
       setStudents([])
     }

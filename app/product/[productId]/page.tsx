@@ -81,6 +81,12 @@ export default function ProductPage({ params }: { params: Promise<{ productId: s
 
   useEffect(() => {
     if (selectedStudent && product) {
+      if (selectedStudent.classId !== product.classId) {
+        handleClearStudent()
+        toast.error('تم تغيير الطالب لأن المنتج لفرقة دراسية مختلفة')
+        return
+      }
+
       checkExistingOrder()
 
       // Poll for updates every 5 seconds
@@ -229,6 +235,7 @@ export default function ProductPage({ params }: { params: Promise<{ productId: s
               selectedStudent={selectedStudent} 
               onSelect={handleStudentChange} 
               onClear={handleClearStudent} 
+              classId={product.classId}
             />
           </CardContent>
         </Card>
@@ -238,7 +245,14 @@ export default function ProductPage({ params }: { params: Promise<{ productId: s
           <CardHeader>
             <div className="flex justify-between items-start">
               <div>
-                <CardTitle className="text-xl">{product.name}</CardTitle>
+                <CardTitle className="text-xl flex items-center gap-2">
+                  {product.type === 'COURSE' ? (
+                    <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-sm font-medium">كورس</span>
+                  ) : (
+                    <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-sm font-medium">كتاب</span>
+                  )}
+                  {product.name}
+                </CardTitle>
                 <CardDescription className="mt-1">
                   {product.admin?.name && `بواسطة ${product.admin.name}`}
                 </CardDescription>
