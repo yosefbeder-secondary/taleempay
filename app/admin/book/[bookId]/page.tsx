@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
-import { getBookStats, markOrderDelivered, confirmPayment, bulkConfirmPayments, declinePayment } from '@/app/actions'
+import { getProductStats, markOrderDelivered, confirmPayment, bulkConfirmPayments, declinePayment } from '@/app/actions'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle }
 from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -77,9 +77,9 @@ export default function BookDetailsPage() {
 
   const loadStats = async () => {
     try {
-      const data = await getBookStats(bookId)
+      const data = await getProductStats(bookId)
       if (data) {
-        setBook(data.book)
+        setBook(data.product)
         setStats(data.stats)
       }
     } catch (error) {

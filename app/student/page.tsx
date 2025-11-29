@@ -28,7 +28,7 @@ type ProductWithOrder = {
   } | null
   admin?: {
     name: string
-  }
+  } | null
   type: 'BOOK' | 'COURSE'
 }
 

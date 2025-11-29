@@ -103,7 +103,7 @@ export function StudentSelector({ selectedStudent, onSelect, onClear }: StudentS
                     <Check
                       className={cn(
                         "mr-2 h-4 w-4",
-                        selectedStudent?.id === student.id ? "opacity-100" : "opacity-0"
+                        "opacity-0"
                       )}
                     />
                   </CommandItem>
