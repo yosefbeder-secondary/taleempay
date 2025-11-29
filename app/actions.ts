@@ -105,7 +105,10 @@ const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET!)
 export async function signupAdmin(data: { name: string; username: string; password: string }) {
   try {
     const existingAdmin = await prisma.admin.findUnique({ where: { username: data.username } })
-    if (existingAdmin) return { success: false, error: 'اسم المستخدم مستخدم بالفعل' }
+    if (existingAdmin) {
+      console.log('Signup failed: Username already exists', data.username)
+      return { success: false, error: 'اسم المستخدم مستخدم بالفعل' }
+    }
 
     const hashedPassword = await bcrypt.hash(data.password, 10)
     
@@ -140,10 +143,16 @@ export async function signupAdmin(data: { name: string; username: string; passwo
 export async function loginAdmin(username: string, password: string) { // Changed signature to match usage
   try {
     const admin = await prisma.admin.findUnique({ where: { username } })
-    if (!admin) return { success: false }
+    if (!admin) {
+      console.log('Login failed: User not found', username)
+      return { success: false }
+    }
 
     const isValid = await bcrypt.compare(password, admin.password)
-    if (!isValid) return { success: false }
+    if (!isValid) {
+      console.log('Login failed: Invalid password', username)
+      return { success: false }
+    }
 
     const token = await new SignJWT({ id: admin.id, username: admin.username })
       .setProtectedHeader({ alg: 'HS256' })

@@ -9,11 +9,14 @@ import { toast } from 'sonner'
 import { updateAdminProfile, logoutAdmin } from '@/app/actions'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, AlertCircle, CheckCircle } from 'lucide-react'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
 export default function ProfilePage() {
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
@@ -21,14 +24,19 @@ export default function ProfilePage() {
     e.preventDefault()
     setLoading(true)
 
+    setError('')
+    setSuccess('')
+
     try {
       await updateAdminProfile({ 
         name: name || undefined, 
         password: password || undefined 
       })
+      setSuccess('تم تحديث البيانات بنجاح')
       toast.success('تم تحديث البيانات بنجاح')
       setPassword('')
     } catch (error) {
+      setError('فشل تحديث البيانات')
       toast.error('فشل تحديث البيانات')
     } finally {
       setLoading(false)
@@ -58,7 +66,21 @@ export default function ProfilePage() {
             <CardDescription>قم بتحديث اسمك أو كلمة المرور.</CardDescription>
           </CardHeader>
           <form onSubmit={handleUpdate}>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 pb-6">
+              {error && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>خطأ</AlertTitle>
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+              {success && (
+                <Alert className="mb-4 border-green-500 text-green-700 bg-green-50">
+                  <CheckCircle className="h-4 w-4 text-green-700" />
+                  <AlertTitle>نجاح</AlertTitle>
+                  <AlertDescription>{success}</AlertDescription>
+                </Alert>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="name">الاسم</Label>
                 <Input
@@ -81,7 +103,7 @@ export default function ProfilePage() {
                 />
               </div>
             </CardContent>
-            <CardFooter className="flex-col gap-4">
+            <CardFooter className="flex-col gap-4 pt-4">
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? 'جاري التحديث...' : 'حفظ التغييرات'}
               </Button>

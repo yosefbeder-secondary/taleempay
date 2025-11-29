@@ -10,7 +10,7 @@
     "postinstall": "prisma generate"
   },
   "prisma": {
-    "seed": "node seed-students.js"
+    "seed": "tsx scripts/seed-students.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.940.0",

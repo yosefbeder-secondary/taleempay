@@ -11,11 +11,15 @@ import { signupAdmin } from '@/app/actions'
 import Image from 'next/image'
 
 import Link from 'next/link'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { AlertCircle, CheckCircle } from 'lucide-react'
 
 export default function SignupPage() {
   const [name, setName] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
@@ -23,15 +27,21 @@ export default function SignupPage() {
     e.preventDefault()
     setLoading(true)
 
+    setError('')
+    setSuccess('')
+
     try {
       const result = await signupAdmin({ name, username, password })
       if (result.success) {
+        setSuccess('تم إنشاء الحساب بنجاح')
         toast.success('تم إنشاء الحساب بنجاح')
-        router.push('/admin')
+        setTimeout(() => router.push('/admin'), 1500)
       } else {
+        setError(result.error || 'فشل إنشاء الحساب')
         toast.error(result.error || 'فشل إنشاء الحساب')
       }
     } catch (error) {
+      setError('حدث خطأ أثناء إنشاء الحساب')
       toast.error('حدث خطأ أثناء إنشاء الحساب')
     } finally {
       setLoading(false)
@@ -54,7 +64,21 @@ export default function SignupPage() {
           <CardDescription>إنشاء حساب مسؤول جديد</CardDescription>
         </CardHeader>
         <form onSubmit={handleSignup}>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 pb-6">
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>خطأ</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            {success && (
+              <Alert className="mb-4 border-green-500 text-green-700 bg-green-50">
+                <CheckCircle className="h-4 w-4 text-green-700" />
+                <AlertTitle>نجاح</AlertTitle>
+                <AlertDescription>{success}</AlertDescription>
+              </Alert>
+            )}
             <div className="space-y-2">
               <Label htmlFor="name">الاسم الكامل</Label>
               <Input
@@ -89,7 +113,7 @@ export default function SignupPage() {
               />
             </div>
           </CardContent>
-          <CardFooter className="flex flex-col gap-4">
+          <CardFooter className="flex flex-col gap-4 pt-4">
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'جاري الإنشاء...' : 'إنشاء حساب'}
             </Button>
