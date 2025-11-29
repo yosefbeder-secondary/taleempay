@@ -481,14 +481,18 @@ export async function getProductStats(productId: string) {
     const totalSales = paidOrders.length
 
     const paidStudentIds = new Set(paidOrders.map(o => o.studentId))
+    const pendingConfirmationStudentIds = new Set(pendingConfirmation.map(o => o.studentId))
     
     // Fetch all students in the class to find unpaid ones
     const allStudents = await prisma.student.findMany({
       where: { classId: product.classId }
     })
     
-    // Unpaid means they haven't PAID or DELIVERED. PENDING_CONFIRMATION is technically not paid yet.
-    const unpaidStudentsList = allStudents.filter(s => !paidStudentIds.has(s.id))
+    // Unpaid means they haven't PAID, DELIVERED, or PENDING_CONFIRMATION.
+    // This list will now include DECLINED students.
+    const unpaidStudentsList = allStudents.filter(s => 
+      !paidStudentIds.has(s.id) && !pendingConfirmationStudentIds.has(s.id)
+    )
 
     // Generate Signed URLs for pending confirmation orders
     const pendingConfirmationOrdersWithUrls = await Promise.all(pendingConfirmation.map(async (o) => {
@@ -509,6 +513,7 @@ export async function getProductStats(productId: string) {
 
       return {
         id: o.id,
+        studentId: o.studentId,
         studentName: o.student.name,
         screenshotUrl: signedUrl,
         createdAt: o.createdAt,
@@ -526,19 +531,29 @@ export async function getProductStats(productId: string) {
         delivered: deliveredOrders.length,
         pendingOrders: pendingPickup.map(o => ({
           id: o.id,
+          studentId: o.studentId,
           studentName: o.student.name,
           qrCodeString: o.qrCodeString,
+          status: o.status,
           createdAt: o.createdAt,
           activationPhoneNumber: o.activationPhoneNumber
         })),
         pendingConfirmationOrders: pendingConfirmationOrdersWithUrls,
-        unpaidStudentsList: unpaidStudentsList.map(s => ({
-          id: s.id,
-          name: s.name,
-          settingId: s.settingId
-        })),
+        unpaidStudentsList: unpaidStudentsList.map(s => {
+          // Check if student has a DECLINED order
+          const studentOrder = product.orders.find(o => o.studentId === s.id)
+          const status = studentOrder?.status === 'DECLINED' ? 'DECLINED' : 'UNPAID'
+          
+          return {
+            id: s.id,
+            name: s.name,
+            settingId: s.settingId,
+            status: status
+          }
+        }),
         paidOrders: paidOrders.map(o => ({
           id: o.id,
+          studentId: o.studentId,
           studentName: o.student.name,
           status: o.status,
           createdAt: o.createdAt,
@@ -570,6 +585,117 @@ export async function markOrderDelivered(qrCodeString: string) {
     revalidatePath(`/admin/product/${order.productId}`)
     return { success: true, studentName: order.student.name, productName: order.product.name }
   } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
+export async function setStudentStatus(studentId: string, productId: string, status: string) {
+  try {
+    if (status === 'UNPAID') {
+      // Delete the order if it exists
+      const order = await prisma.order.findFirst({
+        where: { studentId, productId }
+      })
+      
+      if (order) {
+        await prisma.order.delete({
+          where: { id: order.id }
+        })
+      }
+    } else {
+      // Upsert the order
+      const existingOrder = await prisma.order.findFirst({
+        where: { studentId, productId }
+      })
+
+      // Generate QR code if needed (for PAID/DELIVERED status)
+      let qrCodeString = existingOrder?.qrCodeString
+      if ((status === 'PAID' || status === 'DELIVERED') && !qrCodeString) {
+        qrCodeString = crypto.randomUUID()
+      }
+
+      if (existingOrder) {
+        await prisma.order.update({
+          where: { id: existingOrder.id },
+          data: { 
+            status,
+            qrCodeString: qrCodeString || existingOrder.qrCodeString
+          }
+        })
+      } else {
+        await prisma.order.create({
+          data: {
+            studentId,
+            productId,
+            status,
+            qrCodeString: qrCodeString
+          }
+        })
+      }
+    }
+
+    revalidatePath(`/admin/product/${productId}`)
+    return { success: true }
+  } catch (error: any) {
+    console.error('Set status error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export async function bulkSetStudentStatus(studentIds: string[], productId: string, status: string) {
+  try {
+    if (status === 'UNPAID') {
+      // Delete orders
+      await prisma.order.deleteMany({
+        where: {
+          productId,
+          studentId: { in: studentIds }
+        }
+      })
+    } else {
+      // Generate QR codes for all if needed
+      // Since we can't easily do this in a single bulk update with different UUIDs,
+      // iteration is the best approach here as well.
+      
+      await prisma.$transaction(
+        async (tx) => {
+          for (const studentId of studentIds) {
+            const existingOrder = await tx.order.findFirst({
+              where: { studentId, productId }
+            })
+
+            let qrCodeString = existingOrder?.qrCodeString
+            if ((status === 'PAID' || status === 'DELIVERED') && !qrCodeString) {
+              qrCodeString = crypto.randomUUID()
+            }
+
+            if (existingOrder) {
+              await tx.order.update({
+                where: { id: existingOrder.id },
+                data: { 
+                  status,
+                  qrCodeString: qrCodeString || existingOrder.qrCodeString
+                }
+              })
+            } else {
+              await tx.order.create({
+                data: {
+                  studentId,
+                  productId,
+                  status,
+                  qrCodeString: qrCodeString
+                }
+              })
+            }
+          }
+        }
+      )
+    }
+
+    revalidatePath(`/admin/product/${productId}`)
+    return { success: true }
+  } catch (error: any) {
+    console.error('Bulk set status error:', error)
     return { success: false, error: error.message }
   }
 }

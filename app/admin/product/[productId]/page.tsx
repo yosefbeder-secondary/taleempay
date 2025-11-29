@@ -32,6 +32,68 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { setStudentStatus, bulkSetStudentStatus } from '@/app/actions'
+
+const STATUS_OPTIONS = [
+  { value: 'UNPAID', label: 'لم يدفع', color: 'text-gray-500' },
+  { value: 'PENDING_CONFIRMATION', label: 'في انتظار التأكيد', color: 'text-yellow-600' },
+  { value: 'PAID', label: 'تم الدفع', color: 'text-blue-600' },
+  { value: 'DELIVERED', label: 'تم التسليم/التفعيل', color: 'text-green-600' },
+  { value: 'DECLINED', label: 'مرفوض', color: 'text-red-600' },
+]
+
+function StatusSelect({ 
+  currentStatus, 
+  studentId, 
+  productId, 
+  onUpdate 
+}: { 
+  currentStatus: string, 
+  studentId: string, 
+  productId: string,
+  onUpdate: () => void 
+}) {
+  const [loading, setLoading] = useState(false)
+
+  const handleValueChange = async (value: string) => {
+    setLoading(true)
+    try {
+      const result = await setStudentStatus(studentId, productId, value)
+      if (result.success) {
+        toast.success('تم تحديث الحالة بنجاح')
+        onUpdate()
+      } else {
+        toast.error('فشل تحديث الحالة')
+      }
+    } catch (error) {
+      toast.error('حدث خطأ ما')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Select value={currentStatus} onValueChange={handleValueChange} disabled={loading}>
+      <SelectTrigger className="w-[140px] h-8">
+        <SelectValue placeholder="اختر الحالة" />
+      </SelectTrigger>
+      <SelectContent>
+        {STATUS_OPTIONS.map((option) => (
+          <SelectItem key={option.value} value={option.value} className={option.color}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
 
 type Stats = {
   totalSales: number
@@ -41,13 +103,16 @@ type Stats = {
   delivered: number
   pendingOrders: Array<{
     id: string
+    studentId: string
     studentName: string
     qrCodeString: string
+    status: string
     createdAt: Date
     activationPhoneNumber?: string | null
   }>
   pendingConfirmationOrders: Array<{
     id: string
+    studentId: string
     studentName: string
     screenshotUrl: string | null
     createdAt: Date
@@ -57,9 +122,11 @@ type Stats = {
     id: string
     name: string
     settingId: string
+    status?: string
   }>
   paidOrders: Array<{
     id: string
+    studentId: string
     studentName: string
     status: string
     createdAt: Date
@@ -87,6 +154,18 @@ export default function ProductDetailsPage() {
   const [manualCode, setManualCode] = useState('')
   const [showScanner, setShowScanner] = useState(false)
   const [processingId, setProcessingId] = useState<string | null>(null)
+  const [selectedStudents, setSelectedStudents] = useState<string[]>([])
+  const [bulkActionLoading, setBulkActionLoading] = useState(false)
+  const [unpaidSearchTerm, setUnpaidSearchTerm] = useState('')
+
+  // ... (existing code)
+
+  const filteredUnpaidStudents = unpaidSearchTerm.length < 3 ? [] : (stats?.unpaidStudentsList.filter(student => 
+    student.name.toLowerCase().includes(unpaidSearchTerm.toLowerCase()) ||
+    student.settingId.toLowerCase().includes(unpaidSearchTerm.toLowerCase())
+  ) || [])
+
+
 
   const loadStats = async () => {
     try {
@@ -96,9 +175,45 @@ export default function ProductDetailsPage() {
         setStats(data.stats)
       }
     } catch (error) {
-      toast.error('Failed to load stats')
+      toast.error('فشل تحميل الإحصائيات')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleBulkStatusChange = async (status: string) => {
+    if (selectedStudents.length === 0) return
+    
+    setBulkActionLoading(true)
+    try {
+      const result = await bulkSetStudentStatus(selectedStudents, productId, status)
+      if (result.success) {
+        toast.success(`تم تحديث حالة ${selectedStudents.length} طالب بنجاح`)
+        setSelectedStudents([]) // Clear selection
+        loadStats()
+      } else {
+        toast.error('فشل تحديث الحالة')
+      }
+    } catch (error) {
+      toast.error('حدث خطأ ما')
+    } finally {
+      setBulkActionLoading(false)
+    }
+  }
+
+  const toggleSelectAll = (studentIds: string[]) => {
+    if (selectedStudents.length === studentIds.length) {
+      setSelectedStudents([])
+    } else {
+      setSelectedStudents(studentIds)
+    }
+  }
+
+  const toggleSelectStudent = (studentId: string) => {
+    if (selectedStudents.includes(studentId)) {
+      setSelectedStudents(selectedStudents.filter(id => id !== studentId))
+    } else {
+      setSelectedStudents([...selectedStudents, studentId])
     }
   }
 
@@ -153,11 +268,11 @@ export default function ProductDetailsPage() {
         playSuccessSound()
         loadStats() // Refresh stats
       } else {
-        toast.error(result.error || 'Invalid QR Code')
+        toast.error(result.error || 'كود QR غير صالح')
       }
     } catch (error) {
       console.error('Scan error:', error);
-      toast.error('Error processing QR code')
+      toast.error('خطأ في معالجة كود QR')
     } finally {
       setScanning(false)
     }
@@ -167,10 +282,10 @@ export default function ProductDetailsPage() {
     setProcessingId(orderId)
     try {
       await confirmPayment(orderId)
-      toast.success('Payment confirmed')
+      toast.success('تم تأكيد الدفع')
       loadStats()
     } catch (error) {
-      toast.error('Failed to confirm payment')
+      toast.error('فشل تأكيد الدفع')
     } finally {
       setProcessingId(null)
     }
@@ -180,10 +295,10 @@ export default function ProductDetailsPage() {
     setProcessingId(orderId)
     try {
       await declinePayment(orderId)
-      toast.success('Payment declined')
+      toast.success('تم رفض الدفع')
       loadStats()
     } catch (error) {
-      toast.error('Failed to decline payment')
+      toast.error('فشل رفض الدفع')
     } finally {
       setProcessingId(null)
     }
@@ -193,10 +308,10 @@ export default function ProductDetailsPage() {
     if (!stats || !product) return
     try {
       const result = await bulkConfirmPayments(product.id)
-      toast.success(`Confirmed ${result.count} payments`)
+      toast.success(`تم تأكيد ${result.count} عملية دفع`)
       loadStats()
     } catch (error) {
-      toast.error('Failed to bulk confirm')
+      toast.error('فشل التأكيد الجماعي')
     }
   }
 
@@ -219,7 +334,7 @@ export default function ProductDetailsPage() {
           if (code) {
             handleScan(code.data)
           } else {
-            toast.error('No QR code found in image')
+            toast.error('لم يتم العثور على كود QR في الصورة')
           }
         }
       }
@@ -346,11 +461,11 @@ export default function ProductDetailsPage() {
       }
 
       pdf.save(`${product.name}_${type}_report.pdf`)
-      toast.success(`${type} report downloaded`)
+      toast.success(`تم تحميل تقرير ${type === 'sales' ? 'المبيعات' : type === 'pending' ? 'المعلق' : 'غير الدافعين'}`)
 
     } catch (error) {
       console.error(error)
-      toast.error('Failed to generate PDF')
+      toast.error('فشل إنشاء ملف PDF')
     } finally {
       document.body.removeChild(iframe)
     }
@@ -417,16 +532,115 @@ export default function ProductDetailsPage() {
         </div>
       </div>
 
+      {/* Bulk Action Bar */}
+      {selectedStudents.length > 0 && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-white border shadow-lg rounded-lg p-4 flex items-center gap-4 z-50 w-[90%] md:w-auto animate-in slide-in-from-bottom-10">
+          <span className="font-medium">{selectedStudents.length} طالب محدد</span>
+          <div className="h-4 w-px bg-gray-200" />
+          <Select onValueChange={handleBulkStatusChange} disabled={bulkActionLoading}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="تغيير الحالة إلى..." />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUS_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value} className={option.color}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setSelectedStudents([])}
+            className="text-muted-foreground"
+          >
+            إلغاء
+          </Button>
+        </div>
+      )}
+
       {/* Stats Grid */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="col-span-1 sm:col-span-2 lg:col-span-1">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">لم يشتروا بعد</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.unpaidStudents}</div>
-            <p className="text-xs text-muted-foreground">طلاب لم يدفعوا</p>
+            <p className="text-xs text-muted-foreground mb-4">طلاب لم يدفعوا</p>
+            
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="w-full">عرض القائمة</Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>الطلاب الذين لم يشتروا المنتج</DialogTitle>
+                  <DialogDescription>
+                    يمكنك تحديد الطلاب وتغيير حالتهم يدوياً.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="mt-4 space-y-4">
+                  <div className="relative">
+                    <Search className="absolute right-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="بحث بالاسم أو رقم الجلوس..."
+                      value={unpaidSearchTerm}
+                      onChange={(e) => setUnpaidSearchTerm(e.target.value)}
+                      className="pr-8 text-right"
+                    />
+                  </div>
+                  {unpaidSearchTerm.length > 0 && unpaidSearchTerm.length < 3 && (
+                    <p className="text-sm text-muted-foreground text-right">
+                      يرجى كتابة 3 أحرف على الأقل للبحث
+                    </p>
+                  )}
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[50px]">
+                          <input 
+                            type="checkbox" 
+                            className="rounded border-gray-300"
+                            checked={filteredUnpaidStudents.length > 0 && filteredUnpaidStudents.every(s => selectedStudents.includes(s.id))}
+                            onChange={() => toggleSelectAll(filteredUnpaidStudents.map(s => s.id))}
+                          />
+                        </TableHead>
+                        <TableHead className="text-right">اسم الطالب</TableHead>
+                        <TableHead className="text-right">رقم الجلوس</TableHead>
+                        <TableHead className="text-left">الحالة</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredUnpaidStudents.map((student) => (
+                        <TableRow key={student.id}>
+                          <TableCell>
+                            <input 
+                              type="checkbox" 
+                              className="rounded border-gray-300"
+                              checked={selectedStudents.includes(student.id)}
+                              onChange={() => toggleSelectStudent(student.id)}
+                            />
+                          </TableCell>
+                          <TableCell className="font-medium">{student.name}</TableCell>
+                          <TableCell className="text-right">{student.settingId}</TableCell>
+                          <TableCell className="text-left">
+                            <StatusSelect 
+                              currentStatus={student.status || "UNPAID"} 
+                              studentId={student.id} 
+                              productId={product.id}
+                              onUpdate={loadStats}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </DialogContent>
+            </Dialog>
           </CardContent>
         </Card>
         <Card>
@@ -511,18 +725,34 @@ export default function ProductDetailsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-[50px]">
+                      <input 
+                        type="checkbox" 
+                        className="rounded border-gray-300"
+                        checked={stats.pendingConfirmationOrders.length > 0 && stats.pendingConfirmationOrders.every(o => selectedStudents.includes(o.studentId))} // Note: stats.pendingConfirmationOrders needs studentId
+                        onChange={() => toggleSelectAll(stats.pendingConfirmationOrders.map(o => o.studentId))} // Note: stats.pendingConfirmationOrders needs studentId
+                      />
+                    </TableHead>
                     <TableHead className="text-right">اسم الطالب</TableHead>
                     {product.type === 'COURSE' && (
                       <TableHead className="text-right">رقم التفعيل</TableHead>
                     )}
                     <TableHead className="text-right">التاريخ</TableHead>
                     <TableHead className="text-right">الإثبات</TableHead>
-                    <TableHead className="text-left">إجراء</TableHead>
+                    <TableHead className="text-left">الحالة</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {stats.pendingConfirmationOrders.map((order) => (
                     <TableRow key={order.id}>
+                      <TableCell>
+                        <input 
+                          type="checkbox" 
+                          className="rounded border-gray-300"
+                          checked={selectedStudents.includes(order.studentId)} // Note: stats.pendingConfirmationOrders needs studentId
+                          onChange={() => toggleSelectStudent(order.studentId)} // Note: stats.pendingConfirmationOrders needs studentId
+                        />
+                      </TableCell>
                       <TableCell className="font-medium">{order.studentName}</TableCell>
                       {product.type === 'COURSE' && (
                         <TableCell dir="ltr" className="text-right">{order.activationPhoneNumber || '-'}</TableCell>
@@ -580,25 +810,12 @@ export default function ProductDetailsPage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <div className="flex gap-2 justify-end">
-                          <Button 
-                            size="sm" 
-                            variant="default"
-                            className="bg-green-600 hover:bg-green-700"
-                            onClick={() => handleConfirmPayment(order.id)}
-                            disabled={processingId === order.id}
-                          >
-                            {processingId === order.id ? 'جاري...' : 'تأكيد'}
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="destructive"
-                            onClick={() => handleDeclinePayment(order.id)}
-                            disabled={processingId === order.id}
-                          >
-                            {processingId === order.id ? 'جاري...' : 'رفض'}
-                          </Button>
-                        </div>
+                        <StatusSelect 
+                          currentStatus="PENDING_CONFIRMATION" 
+                          studentId={order.studentId} // Note: stats.pendingConfirmationOrders needs studentId
+                          productId={product.id}
+                          onUpdate={loadStats}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -653,6 +870,14 @@ export default function ProductDetailsPage() {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-[50px]">
+                            <input 
+                              type="checkbox" 
+                              className="rounded border-gray-300"
+                              checked={filteredPendingOrders.length > 0 && filteredPendingOrders.every(o => selectedStudents.includes(o.studentId))}
+                              onChange={() => toggleSelectAll(filteredPendingOrders.map(o => o.studentId))}
+                            />
+                          </TableHead>
                           <TableHead className="text-right">اسم الطالب</TableHead>
                           {product.type === 'COURSE' && (
                             <TableHead className="text-right">رقم التفعيل</TableHead>
@@ -660,12 +885,20 @@ export default function ProductDetailsPage() {
                           {product.type !== 'COURSE' && (
                             <TableHead className="text-right">كود QR</TableHead>
                           )}
-                          <TableHead className="text-left">إجراء</TableHead>
+                          <TableHead className="text-left">الحالة</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {filteredPendingOrders.map((order: any) => (
                           <TableRow key={order.id}>
+                            <TableCell>
+                              <input 
+                                type="checkbox" 
+                                className="rounded border-gray-300"
+                                checked={selectedStudents.includes(order.studentId)}
+                                onChange={() => toggleSelectStudent(order.studentId)}
+                              />
+                            </TableCell>
                             <TableCell className="font-medium">
                               <div className="flex flex-col">
                                 <span>{order.studentName}</span>
@@ -678,14 +911,12 @@ export default function ProductDetailsPage() {
                               <TableCell className="font-mono text-xs">{order.qrCodeString}</TableCell>
                             )}
                             <TableCell className="text-left">
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => handleScan(order.qrCodeString)}
-                                disabled={scanning}
-                              >
-                                {product.type === 'COURSE' ? 'تفعيل' : 'تسليم'}
-                              </Button>
+                              <StatusSelect 
+                                currentStatus={order.status} 
+                                studentId={order.studentId}
+                                productId={product.id}
+                                onUpdate={loadStats}
+                              />
                             </TableCell>
                           </TableRow>
                         ))}
@@ -791,11 +1022,20 @@ export default function ProductDetailsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-[50px]">
+                        <input 
+                          type="checkbox" 
+                          className="rounded border-gray-300"
+                          checked={stats?.paidOrders.filter(o => o.status === 'DELIVERED').length > 0 && stats?.paidOrders.filter(o => o.status === 'DELIVERED').every(o => selectedStudents.includes(o.studentId))}
+                          onChange={() => toggleSelectAll(stats?.paidOrders.filter(o => o.status === 'DELIVERED').map(o => o.studentId))}
+                        />
+                      </TableHead>
                       <TableHead className="text-right">اسم الطالب</TableHead>
                       {product.type === 'COURSE' && (
                         <TableHead className="text-right">رقم التفعيل</TableHead>
                       )}
                       <TableHead className="text-right">تاريخ الاستلام</TableHead>
+                      <TableHead className="text-left">الحالة</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -803,12 +1043,28 @@ export default function ProductDetailsPage() {
                       .filter(o => o.status === 'DELIVERED')
                       .map((order) => (
                       <TableRow key={order.id}>
+                        <TableCell>
+                          <input 
+                            type="checkbox" 
+                            className="rounded border-gray-300"
+                            checked={selectedStudents.includes(order.studentId)}
+                            onChange={() => toggleSelectStudent(order.studentId)}
+                          />
+                        </TableCell>
                         <TableCell>{order.studentName}</TableCell>
                         {product.type === 'COURSE' && (
                           <TableCell dir="ltr" className="text-right">{order.activationPhoneNumber || '-'}</TableCell>
                         )}
                         <TableCell>
                           {new Date(order.createdAt).toLocaleDateString('ar-EG')}
+                        </TableCell>
+                        <TableCell className="text-left">
+                          <StatusSelect 
+                            currentStatus="DELIVERED" 
+                            studentId={order.studentId}
+                            productId={product.id}
+                            onUpdate={loadStats}
+                          />
                         </TableCell>
                       </TableRow>
                     ))}

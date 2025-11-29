@@ -1,12 +1,12 @@
 'use client'
 
 import { getProduct, createOrder, getStudentOrder, getStudentFromCookie, setStudentCookie, clearStudentCookie } from '../../actions'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Upload, Check, Loader2, ArrowRight } from 'lucide-react'
+import { Upload, Check, Loader2, ArrowRight, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -53,6 +53,11 @@ export default function ProductPage({ params }: { params: Promise<{ productId: s
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
   const [activationPhone, setActivationPhone] = useState('')
   const [isEditing, setIsEditing] = useState(false)
+  const isEditingRef = useRef(isEditing)
+
+  useEffect(() => {
+    isEditingRef.current = isEditing
+  }, [isEditing])
   
   // Load selected student from cookie on mount
   useEffect(() => {
@@ -112,14 +117,16 @@ export default function ProductPage({ params }: { params: Promise<{ productId: s
   async function checkExistingOrder() {
     if (!selectedStudent || !product) return
     
+    // Don't poll if user is editing/uploading to prevent UI resets
+    if (isEditingRef.current) return
+
     try {
       const existingOrder = await getStudentOrder(selectedStudent.id, product.id)
       setOrder(existingOrder as Order)
       if (existingOrder?.activationPhoneNumber) {
         setActivationPhone(existingOrder.activationPhoneNumber)
       }
-      // Reset editing state when loading new order data
-      setIsEditing(false)
+      // Do not reset isEditing here, as it interferes with "Try Again" functionality during polling
     } catch (error) {
       console.error('Failed to check existing order:', error)
     }
@@ -270,10 +277,14 @@ export default function ProductPage({ params }: { params: Promise<{ productId: s
                     ? 'bg-green-50 text-green-700' 
                     : order.status === 'PENDING_CONFIRMATION'
                     ? 'bg-yellow-50 text-yellow-700'
+                    : order.status === 'DECLINED'
+                    ? 'bg-red-50 text-red-700'
                     : 'bg-blue-50 text-blue-700'
                 }`}>
                   {order.status === 'PAID' || order.status === 'DELIVERED' ? (
                     <Check className="h-5 w-5 flex-shrink-0" />
+                  ) : order.status === 'DECLINED' ? (
+                    <AlertCircle className="h-5 w-5 flex-shrink-0" />
                   ) : (
                     <Loader2 className="h-5 w-5 flex-shrink-0 animate-spin" />
                   )}
@@ -281,8 +292,19 @@ export default function ProductPage({ params }: { params: Promise<{ productId: s
                     {order.status === 'PENDING_CONFIRMATION' && 'جاري مراجعة الدفع'}
                     {order.status === 'PAID' && (product.type === 'COURSE' ? 'تم تأكيد الدفع! جاري التفعيل...' : 'تم تأكيد الدفع! جاهز للاستلام.')}
                     {order.status === 'DELIVERED' && (product.type === 'COURSE' ? 'تم تفعيل الكورس' : 'تم تسليم المنتج')}
+                    {order.status === 'DECLINED' && 'تم رفض الدفع. يرجى المحاولة مرة أخرى.'}
                   </p>
                 </div>
+
+                {order.status === 'DECLINED' && (
+                  <Button 
+                    variant="destructive" 
+                    className="w-full"
+                    onClick={() => setIsEditing(true)}
+                  >
+                    محاولة مرة أخرى
+                  </Button>
+                )}
 
                 {product.type === 'COURSE' && order.activationPhoneNumber && (
                   <div className="bg-gray-50 p-3 rounded-lg border text-center mb-4">
