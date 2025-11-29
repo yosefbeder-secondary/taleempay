@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Student {
+  id        String   @id @default(uuid())
+  name      String
+  settingId String   @unique
+  classId   Int
+  gender    String   @default("male")
+  orders    Order[]
+}
+
+enum ProductType {
+  BOOK
+  COURSE
+}
+
+model Product {
+  id                  String      @id @default(uuid())
+  name                String
+  price               Float
+  classId             Int
+  isActive            Boolean     @default(true)
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  paymentPhoneNumber  String?
+  acceptsVodafoneCash Boolean     @default(true)
+  acceptsInstapay     Boolean     @default(true)
+  type                ProductType @default(BOOK)
+  orders              Order[]
+  adminId             String?
+  admin               Admin?      @relation(fields: [adminId], references: [id])
+}
+
+model Admin {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  password  String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  products  Product[]
+}
+
+model Order {
+  id                    String      @id @default(uuid())
+  studentId             String
+  student               Student     @relation(fields: [studentId], references: [id])
+  productId             String
+  product               Product     @relation(fields: [productId], references: [id])
+  status                String      @default("PENDING") // PENDING, PENDING_CONFIRMATION, PAID, DELIVERED
+  paymentScreenshotPath String?
+  qrCodeString          String      @unique @default(uuid())
+  activationPhoneNumber String?
+  createdAt             DateTime    @default(now())
+}
