@@ -263,15 +263,34 @@ export default function ProductDetailsPage() {
     }
   }
 
+  const lastScannedRef = useRef<{ code: string; time: number } | null>(null)
+
   const handleScan = async (text: string) => {
     console.log('Scanned:', text);
+    
+    // Debounce: Ignore if same code scanned within 3 seconds
+    const now = Date.now()
+    if (lastScannedRef.current && 
+        lastScannedRef.current.code === text && 
+        now - lastScannedRef.current.time < 3000) {
+      return
+    }
+    
+    lastScannedRef.current = { code: text, time: now }
+
     if (scanning) return
     setScanning(true)
     try {
       const result = await markOrderDelivered(text)
       console.log('Scan result:', result);
       if (result.success) {
-        toast.success(`تم تسليم الكتاب إلى ${result.studentName}`)
+        toast.success(
+          <div className="flex flex-col gap-1">
+            <span className="text-lg font-bold">تم تسليم الكتاب بنجاح!</span>
+            <span className="text-2xl font-extrabold text-green-700">{result.studentName}</span>
+          </div>,
+          { duration: 5000 }
+        )
         playSuccessSound()
         loadStats() // Refresh stats
       } else {

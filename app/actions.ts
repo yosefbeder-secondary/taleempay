@@ -574,8 +574,18 @@ export async function markOrderDelivered(qrCodeString: string) {
       include: { student: true, product: true },
     })
 
-    if (!order) throw new Error('Order not found')
-    if (order.status !== 'PAID') throw new Error('Order is not in PAID status (might be already delivered or pending)')
+    if (!order) throw new Error('كود QR غير صحيح')
+
+    // If already delivered, return error
+    if (order.status === 'DELIVERED') {
+      throw new Error('تم تسليم هذا الطلب بالفعل')
+    }
+
+    if (order.status !== 'PAID') {
+      if (order.status === 'PENDING_CONFIRMATION') throw new Error('الطلب في انتظار التأكيد')
+      if (order.status === 'DECLINED') throw new Error('تم رفض الطلب')
+      throw new Error('الطلب غير مدفوع')
+    }
 
     const updatedOrder = await prisma.order.update({
       where: { id: order.id },
