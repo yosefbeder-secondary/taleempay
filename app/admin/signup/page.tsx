@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
 import { signupAdmin } from '@/app/actions'
-import Image from 'next/image'
+
 
 import Link from 'next/link'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -54,11 +54,10 @@ export default function SignupPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center space-y-2">
           <div className="relative w-16 h-16 mx-auto">
-            <Image 
+            <img 
               src="/logo.png" 
               alt="TaleemPay Logo" 
-              fill 
-              className="object-contain"
+              className="object-contain w-full h-full"
             />
           </div>
           <CardTitle className="text-2xl">TaleemPay</CardTitle>

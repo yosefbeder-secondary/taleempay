@@ -64,11 +64,11 @@ export async function getStudentOrder(studentId: string, productId: string) {
     if (order && order.paymentScreenshotPath && !order.paymentScreenshotPath.startsWith('http') && !order.paymentScreenshotPath.startsWith('/')) {
        try {
           const command = new GetObjectCommand({
-            Bucket: process.env.B2_BUCKET_NAME!,
+            Bucket: process.env.R2_BUCKET_NAME!,
             Key: order.paymentScreenshotPath,
           })
           const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 })
-          return { ...order, paymentScreenshotPath: signedUrl }
+          return { ...order, paymentScreenshotPath: signedUrl, paymentScreenshotKey: order.paymentScreenshotPath }
         } catch (e) {
           console.error('Error generating signed URL for student order', e)
         }
@@ -92,11 +92,11 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import sharp from 'sharp'
 
 const s3Client = new S3Client({
-  endpoint: process.env.B2_ENDPOINT!,
-  region: process.env.B2_REGION!,
+  region: "auto",
+  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
   credentials: {
-    accessKeyId: process.env.B2_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.B2_SECRET_ACCESS_KEY!,
+    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
   },
 })
 
@@ -231,7 +231,7 @@ export async function createOrder(formData: FormData) {
     const fileName = `payments/${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`
     
     await s3Client.send(new PutObjectCommand({
-      Bucket: process.env.B2_BUCKET_NAME!,
+      Bucket: process.env.R2_BUCKET_NAME!,
       Key: fileName,
       Body: optimizedBuffer,
       ContentType: 'image/jpeg',
@@ -286,7 +286,7 @@ export async function createOrder(formData: FormData) {
     let signedUrl = screenshotKey
     try {
       const command = new GetObjectCommand({
-        Bucket: process.env.B2_BUCKET_NAME!,
+        Bucket: process.env.R2_BUCKET_NAME!,
         Key: screenshotKey,
       })
       signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 })
@@ -513,7 +513,7 @@ export async function getProductStats(productId: string) {
       if (o.paymentScreenshotPath && !o.paymentScreenshotPath.startsWith('http') && !o.paymentScreenshotPath.startsWith('/')) {
         try {
           const command = new GetObjectCommand({
-            Bucket: process.env.B2_BUCKET_NAME!,
+            Bucket: process.env.R2_BUCKET_NAME!,
             Key: o.paymentScreenshotPath,
           })
           signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 }) // 1 hour
@@ -527,6 +527,7 @@ export async function getProductStats(productId: string) {
         studentId: o.studentId,
         studentName: o.student.name,
         screenshotUrl: signedUrl,
+        screenshotKey: o.paymentScreenshotPath,
         createdAt: o.createdAt,
         activationPhoneNumber: o.activationPhoneNumber
       }

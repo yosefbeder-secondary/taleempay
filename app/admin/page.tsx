@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
+
 import { Plus, BookOpen, ArrowRight, Share2, Copy, Trash2, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
@@ -126,11 +126,10 @@ export default function AdminPage() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="flex items-center gap-4 w-full md:w-auto">
             <div className="relative w-12 h-12 md:w-16 md:h-16 flex-shrink-0">
-              <Image 
+              <img 
                 src="/logo.png" 
                 alt="TaleemPay Logo" 
-                fill 
-                className="object-contain"
+                className="object-contain w-full h-full"
               />
             </div>
             <div>

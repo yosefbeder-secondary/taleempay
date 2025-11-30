@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Upload, Check, Loader2, ArrowRight, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
-import Image from 'next/image'
+
 import Link from 'next/link'
 import { StudentSelector } from '@/components/student-selector'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
@@ -40,8 +40,10 @@ type Order = {
   id: string
   status: string
   paymentScreenshotPath: string | null
+  paymentScreenshotKey?: string | null
   activationPhoneNumber?: string | null
   qrCodeString?: string
+  urlCreatedAt?: number
 }
 
 export default function ProductPage({ params }: { params: Promise<{ productId: string }> }) {
@@ -122,7 +124,30 @@ export default function ProductPage({ params }: { params: Promise<{ productId: s
 
     try {
       const existingOrder = await getStudentOrder(selectedStudent.id, product.id)
-      setOrder(existingOrder as Order)
+      
+      setOrder(prevOrder => {
+        const newOrder = existingOrder as Order | null
+        if (!newOrder) return null
+        
+        if (prevOrder && prevOrder.id === newOrder.id) {
+          // Check if screenshot key is same
+          if (prevOrder.paymentScreenshotKey === newOrder.paymentScreenshotKey && prevOrder.paymentScreenshotPath) {
+             // Check expiration (45 mins = 2700000 ms)
+             const now = Date.now()
+             const isExpired = prevOrder.urlCreatedAt && (now - prevOrder.urlCreatedAt > 2700000)
+             
+             if (!isExpired) {
+               return {
+                 ...newOrder,
+                 paymentScreenshotPath: prevOrder.paymentScreenshotPath,
+                 urlCreatedAt: prevOrder.urlCreatedAt
+               }
+             }
+          }
+        }
+        
+        return { ...newOrder, urlCreatedAt: Date.now() }
+      })
       if (existingOrder?.activationPhoneNumber) {
         setActivationPhone(existingOrder.activationPhoneNumber)
       }
@@ -156,7 +181,7 @@ export default function ProductPage({ params }: { params: Promise<{ productId: s
     try {
       const result = await createOrder(formData)
       if (result.success && result.order) {
-        setOrder(result.order as Order)
+        setOrder({ ...(result.order as Order), urlCreatedAt: Date.now() })
         setIsEditing(false) // Exit edit mode on success
         toast.success(order ? 'تم تحديث البيانات بنجاح!' : 'تم رفع إيصال الدفع بنجاح!')
       } else {
@@ -213,11 +238,10 @@ export default function ProductPage({ params }: { params: Promise<{ productId: s
       <div className="max-w-md mx-auto space-y-6">
       <div className="flex flex-col items-center justify-center space-y-2 mb-4">
         <div className="relative w-16 h-16">
-          <Image 
+          <img 
             src="/logo.png" 
             alt="TaleemPay Logo" 
-            fill 
-            className="object-contain"
+            className="object-contain w-full h-full"
           />
         </div>
         <h1 className="text-2xl font-bold text-gray-900">TaleemPay</h1>

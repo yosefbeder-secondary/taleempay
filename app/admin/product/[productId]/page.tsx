@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { Scanner } from '@yudiel/react-qr-scanner'
 import Link from 'next/link'
-import Image from 'next/image'
+
 import { CheckCircle, Clock, Users, BookOpen, Search, Download, FileText, Upload, Image as ImageIcon, ArrowLeft, ArrowRight, Check, AlertCircle, Share2, ExternalLink } from 'lucide-react'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
@@ -115,6 +115,8 @@ type Stats = {
     studentId: string
     studentName: string
     screenshotUrl: string | null
+    screenshotKey?: string | null
+    urlCreatedAt?: number
     createdAt: Date
     activationPhoneNumber?: string | null
   }>
@@ -179,7 +181,34 @@ export default function ProductDetailsPage() {
       const data = await getProductStats(productId)
       if (data) {
         setProduct(data.product)
-        setStats(data.stats)
+        setStats(prevStats => {
+          const newStats = data.stats as Stats
+          
+          // Merge pendingConfirmationOrders to preserve URLs
+          const mergedPendingOrders = newStats.pendingConfirmationOrders.map(newOrder => {
+            const prevOrder = prevStats?.pendingConfirmationOrders.find(p => p.id === newOrder.id)
+            
+            if (prevOrder && prevOrder.screenshotKey === newOrder.screenshotKey && prevOrder.screenshotUrl) {
+               // Check expiration (45 mins)
+               const now = Date.now()
+               const isExpired = prevOrder.urlCreatedAt && (now - prevOrder.urlCreatedAt > 2700000)
+               
+               if (!isExpired) {
+                 return {
+                   ...newOrder,
+                   screenshotUrl: prevOrder.screenshotUrl,
+                   urlCreatedAt: prevOrder.urlCreatedAt
+                 }
+               }
+            }
+            return { ...newOrder, urlCreatedAt: Date.now() }
+          })
+          
+          return {
+            ...newStats,
+            pendingConfirmationOrders: mergedPendingOrders
+          }
+        })
       }
     } catch (error) {
       toast.error('فشل تحميل الإحصائيات')
@@ -528,11 +557,10 @@ export default function ProductDetailsPage() {
           
           <div className="flex items-center gap-3 flex-1">
             <div className="relative w-12 h-12">
-              <Image 
+              <img 
                 src="/logo.png" 
                 alt="TaleemPay Logo" 
-                fill 
-                className="object-contain"
+                className="object-contain w-full h-full"
               />
             </div>
             <div>

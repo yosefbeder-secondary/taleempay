@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { CheckCircle, Clock, AlertCircle, XCircle } from 'lucide-react'
 import { getStudentProducts, setStudentCookie, clearStudentCookie, getStudentFromCookie } from '@/app/actions'
 import Link from 'next/link'
-import Image from 'next/image'
+
 import { cn } from '@/lib/utils'
 import { StudentSelector } from '@/components/student-selector'
 
@@ -100,11 +100,10 @@ export default function StudentPage() {
       <div className="max-w-4xl mx-auto space-y-8">
         <div className="flex flex-col items-center justify-center space-y-4">
           <div className="relative w-20 h-20">
-            <Image 
+            <img 
               src="/logo.png" 
               alt="TaleemPay Logo" 
-              fill 
-              className="object-contain"
+              className="object-contain w-full h-full"
             />
           </div>
           <div className="text-center space-y-2">
