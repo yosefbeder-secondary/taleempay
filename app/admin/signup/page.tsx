@@ -18,6 +18,7 @@ export default function SignupPage() {
   const [name, setName] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [passcode, setPasscode] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
@@ -31,7 +32,7 @@ export default function SignupPage() {
     setSuccess('')
 
     try {
-      const result = await signupAdmin({ name, username, password })
+      const result = await signupAdmin({ name, username, password, passcode })
       if (result.success) {
         setSuccess('تم إنشاء الحساب بنجاح')
         toast.success('تم إنشاء الحساب بنجاح')
@@ -110,6 +111,18 @@ export default function SignupPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 className="text-right"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="passcode">رمز المرور</Label>
+              <Input
+                id="passcode"
+                type="password"
+                value={passcode}
+                onChange={(e) => setPasscode(e.target.value)}
+                required
+                className="text-right"
+                placeholder="أدخل رمز المرور الخاص بالمسؤولين"
               />
             </div>
           </CardContent>

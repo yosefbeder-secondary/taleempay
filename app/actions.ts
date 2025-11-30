@@ -102,8 +102,12 @@ const s3Client = new S3Client({
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET!)
 
-export async function signupAdmin(data: { name: string; username: string; password: string }) {
+export async function signupAdmin(data: { name: string; username: string; password: string; passcode: string }) {
   try {
+    if (data.passcode !== process.env.ADMIN_SIGNUP_PASSCODE) {
+      return { success: false, error: 'رمز المرور غير صحيح' }
+    }
+
     const existingAdmin = await prisma.admin.findUnique({ where: { username: data.username } })
     if (existingAdmin) {
       console.log('Signup failed: Username already exists', data.username)
@@ -187,7 +191,14 @@ export async function getCurrentAdmin() {
 
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET)
-    return payload as { id: string; username: string }
+    
+    // Fetch fresh data from DB to get name and ensure user still exists
+    const admin = await prisma.admin.findUnique({
+      where: { id: payload.id as string },
+      select: { id: true, username: true, name: true }
+    })
+    
+    return admin
   } catch (error) {
     return null
   }

@@ -57,6 +57,7 @@ export default function AdminPage() {
     acceptsInstapay: true,
     type: 'BOOK'
   })
+  const [adminName, setAdminName] = useState('')
   const router = useRouter()
   useEffect(() => {
     checkAuth()
@@ -75,6 +76,7 @@ export default function AdminPage() {
       router.push('/admin/login')
       return
     }
+    setAdminName(admin.name)
     loadProducts()
   }
 
@@ -136,7 +138,12 @@ export default function AdminPage() {
               <p className="text-sm md:text-base text-muted-foreground">لوحة تحكم المسؤول - إدارة المنتجات وتتبع التوزيع.</p>
             </div>
           </div>
-          <div className="flex gap-2 w-full md:w-auto justify-end">
+          <div className="flex gap-2 w-full md:w-auto justify-end items-center">
+            {adminName && (
+              <span className="text-sm font-medium text-gray-700 ml-2">
+                مرحباً، {adminName}
+              </span>
+            )}
             <Link href="/admin/profile">
               <Button variant="outline" size="icon" title="الملف الشخصي">
                 <User className="h-4 w-4" />
