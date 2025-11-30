@@ -432,6 +432,17 @@ export async function createProduct(data: {
 
 // Student Actions
 
+export async function getStudent(id: string) {
+  try {
+    return await prisma.student.findUnique({
+      where: { id },
+    })
+  } catch (error) {
+    console.error('Get student error:', error)
+    return null
+  }
+}
+
 export async function getStudentProducts(studentId: string) {
   try {
     const student = await prisma.student.findUnique({

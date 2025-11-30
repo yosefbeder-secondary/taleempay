@@ -1,6 +1,6 @@
 'use client'
 
-import { getProduct, createOrder, getStudentOrder, getStudentFromCookie, setStudentCookie, clearStudentCookie } from '../../actions'
+import { getProduct, createOrder, getStudentOrder, getStudent } from '../../actions'
 import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -61,21 +61,29 @@ export default function ProductPage({ params }: { params: Promise<{ productId: s
     isEditingRef.current = isEditing
   }, [isEditing])
   
-  // Load selected student from cookie on mount
+  // Load selected student from localStorage on mount
   useEffect(() => {
     async function loadStudent() {
-      const student = await getStudentFromCookie()
-      if (student) {
-        setSelectedStudent(student)
-      } else {
-        // Fallback to localStorage
-        const savedStudent = localStorage.getItem('selectedStudent')
-        if (savedStudent) {
-          try {
-            setSelectedStudent(JSON.parse(savedStudent))
-          } catch (e) {
-            console.error('Failed to parse saved student', e)
+      const savedStudent = localStorage.getItem('selectedStudent')
+      
+      if (savedStudent) {
+        try {
+          const parsedStudent = JSON.parse(savedStudent)
+          // Verify student exists in DB
+          const verifiedStudent = await getStudent(parsedStudent.id)
+          
+          if (verifiedStudent) {
+            setSelectedStudent(parsedStudent)
+          } else {
+            // Invalid localStorage
+            console.log('Invalid student in localStorage, clearing...')
+            localStorage.removeItem('selectedStudent')
+            setSelectedStudent(null)
           }
+        } catch (e) {
+          console.error('Error verifying localStorage student', e)
+          localStorage.removeItem('selectedStudent')
+          setSelectedStudent(null)
         }
       }
     }
@@ -200,7 +208,6 @@ export default function ProductPage({ params }: { params: Promise<{ productId: s
     setActivationPhone('') // Reset phone when student changes
     setIsEditing(false)
     localStorage.setItem('selectedStudent', JSON.stringify(student))
-    await setStudentCookie(student.id)
   }
 
   const handleClearStudent = async () => {
@@ -209,7 +216,6 @@ export default function ProductPage({ params }: { params: Promise<{ productId: s
     setActivationPhone('')
     setIsEditing(false)
     localStorage.removeItem('selectedStudent')
-    await clearStudentCookie()
   }
 
   if (loading) {

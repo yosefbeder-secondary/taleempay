@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
 import { CheckCircle, Clock, AlertCircle, XCircle } from 'lucide-react'
-import { getStudentProducts, setStudentCookie, clearStudentCookie, getStudentFromCookie } from '@/app/actions'
+import { getStudentProducts, getStudent } from '@/app/actions'
 import Link from 'next/link'
 
 import { cn } from '@/lib/utils'
@@ -40,31 +40,33 @@ export default function StudentPage() {
   // Load saved student from cookie or localStorage
   useEffect(() => {
     async function loadStudent() {
-      // Try cookie first
-      const cookieStudent = await getStudentFromCookie()
-      if (cookieStudent) {
-        handleSelectStudent(cookieStudent)
-        return
-      }
-
-      // Fallback to localStorage
       const savedStudent = localStorage.getItem('selectedStudent')
       if (savedStudent) {
         try {
           const parsed = JSON.parse(savedStudent)
-          handleSelectStudent(parsed)
+          // Verify student exists in DB
+          const verifiedStudent = await getStudent(parsed.id)
+          
+          if (verifiedStudent) {
+            handleSelectStudent(parsed, false) // false = don't save again, just set state
+          } else {
+            console.log('Invalid student in localStorage, clearing...')
+            handleClearStudent()
+          }
         } catch (e) {
           console.error('Failed to parse saved student', e)
+          handleClearStudent()
         }
       }
     }
     loadStudent()
   }, [])
 
-  async function handleSelectStudent(student: Student) {
+  async function handleSelectStudent(student: Student, saveToStorage = true) {
     setSelectedStudent(student)
-    localStorage.setItem('selectedStudent', JSON.stringify(student))
-    await setStudentCookie(student.id) // Set cookie
+    if (saveToStorage) {
+      localStorage.setItem('selectedStudent', JSON.stringify(student))
+    }
     setLoading(true)
     const data = await getStudentProducts(student.id)
     if (data) {
@@ -76,7 +78,6 @@ export default function StudentPage() {
   async function handleClearStudent() {
     setSelectedStudent(null)
     localStorage.removeItem('selectedStudent')
-    await clearStudentCookie() // Clear cookie
     setProducts([])
   }
 
