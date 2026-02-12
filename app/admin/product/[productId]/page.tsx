@@ -144,6 +144,7 @@ type Stats = {
   pendingOrders: Array<{
     id: string;
     studentId: string;
+    settingId: string;
     studentName: string;
     qrCodeString: string;
     status: string;
@@ -169,6 +170,7 @@ type Stats = {
   paidOrders: Array<{
     id: string;
     studentId: string;
+    settingId: string;
     studentName: string;
     status: string;
     createdAt: Date;
@@ -517,6 +519,7 @@ export default function ProductDetailsPage() {
             const cellStyle =
               "padding: 12px; border-bottom: 1px solid #e5e7eb;";
 
+            cells += `<td style="${cellStyle}">${item.settingId}</td>`;
             cells += `<td style="${cellStyle}">${item.studentName || item.name}</td>`;
             if (type === "sales")
               cells += `<td style="${cellStyle}">${item.status}</td>`;
@@ -533,7 +536,8 @@ export default function ProductDetailsPage() {
 
         const headers = `
           <tr>
-            <th style="padding: 12px; text-align: left; font-weight: 600; background-color: #f3f4f6;">Student Name</th>
+            <th style="padding: 12px; text-align: left; font-weight: 600; background-color: #f3f4f6;">Setting ID</th>
+            <th style="padding: 12px; text-align: left; font-weight: 600; background-color: #f3f4f6;">Name</th>
             ${type === "sales" ? '<th style="padding: 12px; text-align: left; font-weight: 600; background-color: #f3f4f6;">Status</th>' : ""}
             ${type === "pending" ? '<th style="padding: 12px; text-align: left; font-weight: 600; background-color: #f3f4f6;">QR Code</th>' : ""}
             ${type === "unpaid" ? '<th style="padding: 12px; text-align: left; font-weight: 600; background-color: #f3f4f6;">ID</th>' : ""}

@@ -609,6 +609,7 @@ export async function getProductStats(productId: string) {
         return {
           id: o.id,
           studentId: o.studentId,
+          settingId: o.student.settingId,
           studentName: o.student.name,
           screenshotUrl: signedUrl,
           screenshotKey: o.paymentScreenshotPath,
@@ -629,6 +630,7 @@ export async function getProductStats(productId: string) {
         pendingOrders: pendingPickup.map((o) => ({
           id: o.id,
           studentId: o.studentId,
+          settingId: o.student.settingId,
           studentName: o.student.name,
           qrCodeString: o.qrCodeString,
           status: o.status,
@@ -652,6 +654,7 @@ export async function getProductStats(productId: string) {
         paidOrders: paidOrders.map((o) => ({
           id: o.id,
           studentId: o.studentId,
+          settingId: o.student.settingId,
           studentName: o.student.name,
           status: o.status,
           createdAt: o.createdAt,
