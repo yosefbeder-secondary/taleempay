@@ -665,10 +665,13 @@ export async function getProductStats(productId: string) {
   }
 }
 
-export async function markOrderDelivered(qrCodeString: string) {
+export async function markOrderDelivered(
+  qrCodeString: string,
+  productId: string,
+) {
   try {
     const order = await prisma.order.findUnique({
-      where: { qrCodeString },
+      where: { qrCodeString, productId },
       include: { student: true, product: true },
     });
 
